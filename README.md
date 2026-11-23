@@ -1,6 +1,9 @@
-# GlassBox
+# GlassBox v2
 
-> *See what your Python code actually does — a visual time-travel debugger, call graph explorer, and empirical Big-O laboratory.*
+> *See what your Python code actually does — a visual time-travel debugger, data structure visualizer, call graph explorer, and empirical Big-O laboratory.*
+
+This is the v2 line (`yakuparslan0/Glassbox-v2`). The v1 release (v1.0.x, without the data structure visualizer) lives
+at [yakuparslan0/Glassbox](https://github.com/yakuparslan0/Glassbox).
 
 **See your Python code run.** GlassBox executes a Python program in an isolated process, records every step, and
 lets you scrub back and forth through it: call graph, variables, heap and aliasing, dead and cold code, bottlenecks,
@@ -15,12 +18,33 @@ root-cause tracing of crashes, and an empirical Big-O lab. The UI is Turkish by 
 > with `GLASSBOX_ALLOW_REMOTE=true` unless `SANDBOX_MODE=docker`. Do not expose GlassBox to other machines without the
 > Docker mode. Details: [docs/SECURITY.md](docs/SECURITY.md).
 
+## What's new in v2.0.0
+
+- **Data structure visualizer.** The Heap tab detects the shape of each connected group of objects: a `left`/`right`
+  field makes it a **tree** (top-down layout), `next`/`prev` a **linked list** (left-to-right chain), anything else a
+  **general graph**. Layout is done with dagre; pointer fields are drawn as arrows labelled with the field name, and
+  primitive fields (`val = 10`) stay inside the box. Frames sit on the left, structures on the right.
+- **Time-travel heap diff.** Every step is compared with the previous one, whether you step forward, scrub backwards,
+  or jump: new objects get a `+ NEW` badge (green), changed fields are highlighted (amber), and pointers that now point
+  somewhere else are drawn as animated orange arrows. A toggle and a `+new / ~changed` counter sit above the view.
+- **Null pointer badges.** In trees and linked lists, `left`/`right`/`next`/`prev` fields that are `None` are shown as
+  dashed `left: None` style badges instead of plain rows.
+- **Cycle detection.** A DFS marks the edge that closes a reference cycle (red, dashed) and Tarjan's strongly
+  connected components mark every object on a cycle; a *Cycle detected* badge appears above the view. `prev` and
+  `parent` back-links are ignored, so a doubly linked list is not reported as a cycle.
+- **References kept past the depth limit.** The serializer stops at depth 3. An object the client already has is
+  now sent as `{"ref": "oX"}` at that limit instead of a truncated placeholder, so long lists and deep trees keep
+  every arrow (see [docs/DECISIONS.md](docs/DECISIONS.md)).
+- **New examples:** `reverse_list.py` (in-place reversal with `prev`/`curr`/`nxt`), `bst_insert.py` (binary search
+  tree insertion) and `cycle_detection.py` (Floyd's slow/fast pointers), with Turkish and English titles in the
+  example picker.
+
 ## Run it in 30 seconds
 
 Requirements: Python 3.13+ and Node.js 22+.
 
 ```bash
-git clone https://github.com/yakuparslan0/Glassbox.git && cd Glassbox
+git clone https://github.com/yakuparslan0/Glassbox-v2.git && cd Glassbox-v2
 python -m venv .venv && . .venv/bin/activate          # Windows: .venv\Scripts\activate
 make install                                          # pip install -e "backend[dev]" and npm ci
 make dev                                              # API on 127.0.0.1:8000 + UI on http://localhost:5173
@@ -45,7 +69,7 @@ Real files produced by `glassbox export` (single HTML files, no network, no serv
 | Area | What it does |
 |---|---|
 | Time travel | Back / forward / step over / step out / scrubber with exception, output, library-call and divergence markers; works live while the program is still running. |
-| Views | Call graph (dagre), call tree, heap view with alias highlighting, virtualized timeline, variables with per-variable history. |
+| Views | Call graph (dagre), call tree, heap view with tree / linked-list / graph layouts, step diff, cycle and alias highlighting, virtualized timeline, variables with per-variable history. |
 | Mark & Sweep | Static reachability + what actually ran: confirmed-dead, cold and suspect code, duplicate blocks, unused imports/variables, reclaimable lines. |
 | Bottlenecks | Hot loops, repeated computation (memoization candidates), loop invariants, mutable defaults, alias mutation; untraced `cProfile` / `tracemalloc` passes for real time and memory. |
 | Mentor | Scene-based narration. Layer A (rules, instant, no key) always works; Layer B (LLM via Groq/Gemini) is opt-in per click. |
@@ -69,6 +93,9 @@ flowchart LR
   A -- "OpenAI-compatible HTTP" --> L["Groq / Gemini (optional)"]
 ```
 
+Stack: Python 3.13+ (FastAPI, Pydantic v2; the runner uses the standard library only), React + TypeScript (Vite,
+Zustand, Monaco, React Flow, dagre). Event types for the frontend are generated from the Pydantic models.
+
 More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions in [docs/DECISIONS.md](docs/DECISIONS.md); the original
 specification in [docs/SPEC.md](docs/SPEC.md).
 
@@ -80,10 +107,13 @@ model **and** base URL are set. Source code leaves your machine only when you cl
 ## Development
 
 ```bash
-make test        # backend (pytest) + frontend (vitest)
+make test        # backend (python -m pytest backend/tests) + frontend (cd frontend && npx vitest run)
 make lint        # ruff + tsc
 make schema      # regenerate JSON Schema + frontend/src/types/generated.ts from the Pydantic models
 ```
+
+CI (GitHub Actions, on pushes and pull requests to `main`): ruff, schema check and pytest on Python 3.13 and 3.14;
+`tsc --noEmit`, vitest and the Vite build for the frontend.
 
 Live acceptance checks against a running stack: `GLASSBOX_LIVE=http://127.0.0.1:5173 npx vitest run` in `frontend/`.
 Items that need eyes on the UI are listed in [docs/MANUAL_CHECKLIST.md](docs/MANUAL_CHECKLIST.md).
@@ -94,6 +124,9 @@ Items that need eyes on the UI are listed in [docs/MANUAL_CHECKLIST.md](docs/MAN
 - The tracer is slow (it records every step); the default limits are 20,000 steps and 10 s.
 - The Docker mode and the Docker images were written without a Docker installation at hand and have not been run end to end.
 - What-If shows the main run and one branch at a time with a divergence marker on the scrubber (not two overlaid tracks).
+- Data structure detection is a heuristic based on field names (`left`, `right`, `next`, `prev`); the heap diff
+  compares a step with the step right before it. An object reached for the first time deeper than 3 levels is still a
+  truncated placeholder, and a change that happens only beyond that depth is not re-sent.
 
 ## Roadmap
 
