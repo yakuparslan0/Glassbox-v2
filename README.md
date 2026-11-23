@@ -10,7 +10,9 @@ lets you scrub back and forth through it: call graph, variables, heap and aliasi
 a rule-based (and optionally LLM-powered) mentor, measured refactorings, "what if I change this value?" branches,
 root-cause tracing of crashes, and an empirical Big-O lab. The UI is Turkish by default (English included).
 
-<p align="center"><img src="docs/screenshot.png" alt="GlassBox UI running fib_naive: Monaco editor on the left, call graph (fib called 1973 times) in the middle, Big-O lab on the right, time-travel transport bar at the bottom" width="900"></p>
+<p align="center"><img src="docs/screenshot-heap-diff.png" alt="GlassBox v2 running bst_insert.py at step 97: the Heap tab lays the binary search tree out top-down, the just re-pointed right edge is drawn as an animated orange arrow, and empty left/right pointers show as dashed None badges" width="900"></p>
+
+<p align="center"><img src="docs/screenshot-cycle.png" alt="GlassBox v2 running cycle_detection.py right after d.next = b: a Cycle Detected badge above the heap view, the closing edge drawn red and dashed, and the nodes on the cycle with purple dashed borders" width="900"></p>
 
 > ## Security warning
 > The default `subprocess` sandbox is **not a security boundary**. It protects against runaway loops, memory and
