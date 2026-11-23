@@ -10,7 +10,7 @@ export class StateClient {
   private worker = new Worker(new URL("../workers/stateWorker.ts", import.meta.url), { type: "module" });
   private nextId = 1;
   private latest = 0;
-  private pending = new Map<number, { seq: number; resolve: (s: ViewState | null) => void }>();
+  private pending = new Map<number, { seq: number; keep: boolean; resolve: (s: ViewState | null) => void }>();
   private cache = new Map<number, ViewState>();
 
   constructor() {
@@ -20,7 +20,7 @@ export class StateClient {
       this.pending.delete(msg.data.id);
       if (msg.data.type === "state") {
         this.remember(p.seq, msg.data.state);
-        p.resolve(msg.data.id === this.latest ? msg.data.state : null); // stale answers are dropped
+        p.resolve(p.keep || msg.data.id === this.latest ? msg.data.state : null); // stale answers are dropped
       } else p.resolve(null);
     };
   }
@@ -37,7 +37,9 @@ export class StateClient {
     if (structural.length) this.post({ type: "append", events: structural });
   }
 
-  stateAtSeq(seq: number): Promise<ViewState | null> {
+  /** `latestWins = false` makes a side request (e.g. the previous step for diffing) that neither supersedes the
+   * main request nor is dropped by it; callers must discard it themselves if it arrives stale. */
+  stateAtSeq(seq: number, latestWins = true): Promise<ViewState | null> {
     const hit = this.cache.get(seq);
     if (hit) {
       this.cache.delete(seq);
@@ -45,9 +47,9 @@ export class StateClient {
       return Promise.resolve(hit);
     }
     const id = this.nextId++;
-    this.latest = id;
+    if (latestWins) this.latest = id;
     return new Promise((resolve) => {
-      this.pending.set(id, { seq, resolve });
+      this.pending.set(id, { seq, keep: !latestWins, resolve });
       this.post({ type: "state", id, seq });
     });
   }

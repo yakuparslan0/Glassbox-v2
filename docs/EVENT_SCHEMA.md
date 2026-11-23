@@ -27,7 +27,8 @@ NDJSON (one JSON object per line, ASCII-escaped UTF-8); the API process validate
 
 Heap entries (`heap` map, label → entry): `seq` (list, tuple, set, frozenset, deque; `items`), `map`
 (dict; `pairs`), `obj` (user objects; `attrs` from `__dict__`/`__slots__`). Limits: depth 3, 50 items per
-collection, 2000 nodes per snapshot; beyond that a `{"k":"other",…,"trunc":true}` placeholder is used.
+collection, 2000 nodes per snapshot; beyond that a `{"k":"other",…,"trunc":true}` placeholder is used,
+except for an object whose entry the client already has (sent earlier or in the same event): that stays `{"ref":"oN"}`.
 User `__repr__`/`__str__`/`__getattr__`/`__len__`/`__iter__` are never invoked.
 
 ## Event types

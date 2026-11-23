@@ -243,3 +243,11 @@ commands directly. Update: the CI workflow has since run on GitHub Actions (ubun
 host directory at an identical path for the runner bind mounts (Linux only, untested).
 
 **Example artefacts** in `docs/examples/` are real output of `glassbox export` (not hand-written).
+
+**Depth limit keeps known references (v2.0.0).** Past the serializer depth/node limit an object whose entry the client
+already holds (in the recorder's heap store, or stored earlier in the same snapshot) is emitted as `{"ref":"oN"}`
+instead of a truncated placeholder. Before, a parent reached through a deeper path was re-sent with a placeholder and
+overwrote the full entry on the client, so long linked lists / deep trees lost arrows. Unknown objects still get the
+placeholder (the Phase-1 contract and existing fixtures are unchanged). Accepted limitation, same as before: a
+mutation that happens only beyond the limit is not re-serialized, so the referenced entry can lag until the object is
+reached again within the limit.

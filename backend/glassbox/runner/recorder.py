@@ -130,6 +130,7 @@ class Recorder:
         self.gvals: dict[str, dict[str, Any]] = {}
         self.heap_sent: dict[str, int] = {}
         self.heap_store: dict[str, dict[str, Any]] = {}
+        self.ser.known = self.heap_store  # past the depth limit, already-sent objects stay references
 
         self.line_hits: dict[str, dict[int, int]] = {}
         self.func_stats: dict[str, dict[str, int]] = {}

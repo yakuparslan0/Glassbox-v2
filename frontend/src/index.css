@@ -65,9 +65,25 @@ body { background: var(--bg); color: var(--text); font-family: system-ui, "Segoe
 .gb-node-active { border-color: var(--accent); box-shadow: 0 0 12px var(--accent); }
 .gb-box { background: #1e2432; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-width: 140px; max-width: 280px; }
 .gb-box-object { border-color: #5d7a9f; }
+.gb-box-title { border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+.gb-box-row { line-height: 16px; }
+.gb-box-tree { border-color: #6fcf97; }
+.gb-box-linked_list { border-color: #bb86fc; }
+.react-flow__edge-text { font-size: 11px; font-family: ui-monospace, monospace; }
+.gb-badge-new { display: inline-block; font-size: 10px; font-weight: 700; color: #0b2a12; background: #4cd964; border-radius: 4px; padding: 0 5px; margin-bottom: 2px; }
+.gb-row-changed { background: rgba(255, 204, 51, .22); border-radius: 3px; }
+.gb-null-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.gb-null-badge { font: 10px ui-monospace, monospace; opacity: .55; border: 1px dashed currentColor; border-radius: 4px; padding: 0 4px; }
+.gb-cycle-badge { font-weight: 700; color: #ff4d6d; border: 1px dashed #ff4d6d; border-radius: 4px; padding: 0 6px; }
 .gb-box-alias { border: 2px solid #ffb04a; box-shadow: 0 0 10px rgba(255, 176, 74, .5); }
 .react-flow__edge.gb-edge-active path { stroke: var(--accent) !important; stroke-width: 2.5; }
 .react-flow__edge.gb-edge-alias path { stroke: #ffb04a !important; stroke-width: 2.5; }
+/* diff and cycle signals win over alias styling (alias keeps its chip + icon) */
+.gb-box-updated { border: 2px solid #ffcc33; box-shadow: 0 0 8px rgba(255, 204, 51, .4); }
+.gb-box-new { border: 2px solid #4cd964; box-shadow: 0 0 10px rgba(76, 217, 100, .45); }
+.gb-box-cycle { border: 2px dashed #c77dff; }
+.react-flow__edge.gb-edge-changed path { stroke: #ff9f1a !important; stroke-width: 3; }
+.react-flow__edge.gb-edge-cycle path { stroke: #ff4d6d !important; stroke-width: 3; stroke-dasharray: 8 5; }
 
 /* editor decorations (monaco) */
 .gb-active-line { background: rgba(76, 194, 255, .22); }

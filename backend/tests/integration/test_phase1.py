@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -401,3 +402,23 @@ def test_internal_runner_failure_is_reported_not_swallowed() -> None:
     done = finished(events)
     assert done["status"] == "killed" and "code 70" in done["detail"]
     assert "internal error" in stdout_text(events, "stderr") and "ValueError" in stdout_text(events, "stderr")
+
+
+@pytest.mark.parametrize("from_keyframe", [False, True])
+def test_long_linked_list_keeps_every_arrow_past_the_depth_limit(from_keyframe: bool) -> None:
+    source = (
+        "class Node:\n    def __init__(self, val):\n        self.val = val\n        self.next = None\n\n"
+        "head = None\nfor v in [5, 4, 3, 2, 1]:\n    node = Node(v)\n    node.next = head\n    head = node\n"
+        "del node\nx = 0\n"
+    )
+    events = run(source, keyframe_interval=7)
+    assert '"trunc": true' not in json.dumps(events)  # no depth-limit placeholder anywhere
+    state = reduce_events(events, events[-1]["seq"], from_keyframe=from_keyframe)
+    heap = state.reachable_heap()
+    vals, cur = [], state.globals["head"]
+    while "ref" in cur:
+        entry = heap[cur["ref"]]
+        vals.append(entry["attrs"]["val"]["r"])
+        cur = entry["attrs"]["next"]
+    assert vals == ["1", "2", "3", "4", "5"]
+    assert cur == {"k": "prim", "t": "NoneType", "r": "None"}

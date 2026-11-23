@@ -6,6 +6,10 @@ Safety rules
 - Tracing is off while serializing: callers invoke this from inside tracer callbacks, where both
   sys.monitoring and sys.settrace suppress re-entrant events.
 - Bounded: depth 3, 50 items per collection, 200 chars per string, MAX_NODES nodes per snapshot.
+- At the depth/node limit an object the client already holds (sent earlier: ``known``, or stored in this
+  snapshot) is emitted as ``{"ref": label}`` instead of a truncated placeholder, so a long linked list or
+  deep tree keeps every arrow and an entry sent in full is never overwritten by a cut-down copy. Its entry
+  is the last one sent (deep mutations past the limit are not re-serialized, as before).
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ import itertools
 import json
 import sys
 import types
-from collections.abc import Iterator
+from collections.abc import Container, Iterator
 from typing import Any
 
 MAX_DEPTH = 3
@@ -73,6 +77,8 @@ class Serializer:
         self._budget = MAX_NODES
         self._path: set[str] = set()
         self._visited: list[str] = []
+        # labels whose entry the client already has (the recorder points this at its heap store)
+        self.known: Container[str] = frozenset()
 
     # ------------------------------------------------------------ snapshots
     def begin(self) -> None:
@@ -110,6 +116,10 @@ class Serializer:
             self._ids[key] = label
             self._keep[label] = v
         return label
+
+    def _held(self, label: str) -> bool:
+        """True when the client has (or receives with this snapshot) an entry for ``label``."""
+        return label in self.scratch or label in self.known
 
     def _store(self, label: str, entry: dict[str, Any]) -> dict[str, Any]:
         self.scratch[label] = entry
@@ -171,6 +181,8 @@ class Serializer:
         else:
             n = collections.deque.__len__(v)
         if depth >= MAX_DEPTH or self._budget <= 0:
+            if self._held(label):
+                return {"ref": label}
             return {"k": "other", "t": t.__name__, "r": f"<{t.__name__} len={n}>", "trunc": True}
         self._path.add(label)
         try:
@@ -213,6 +225,8 @@ class Serializer:
         if label in self._path:
             return {"ref": label}
         if depth >= MAX_DEPTH or self._budget <= 0:
+            if self._held(label):
+                return {"ref": label}
             return {"k": "other", "t": t.__name__, "r": f"<{t.__name__} object>", "trunc": True}
         raw: list[tuple[str, Any]] = []
         if isinstance(inst_dict, dict):

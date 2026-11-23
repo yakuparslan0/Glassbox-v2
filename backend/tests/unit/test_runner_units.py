@@ -135,3 +135,27 @@ def test_override_parsing() -> None:
     ):
         with pytest.raises(OverrideError):
             load_overrides([bad])
+
+
+def test_depth_limit_keeps_references_to_objects_the_client_already_has() -> None:
+    class Node:
+        def __init__(self, val: int, nxt: object = None) -> None:
+            self.val = val
+            self.next = nxt
+
+    fourth = Node(4, Node(5))
+    head = Node(1, Node(2, Node(3, fourth)))  # depth 0, 1, 2; `fourth` sits at the depth limit (3)
+    s = Serializer()
+    s.begin()
+    known_label = s.value(fourth)["ref"]  # the client received it earlier (e.g. through its own variable)
+    s.known = dict(s.scratch)
+    s.begin()
+    third = s.scratch[s.scratch[s.scratch[s.value(head)["ref"]]["attrs"]["next"]["ref"]]["attrs"]["next"]["ref"]]
+    assert third["attrs"]["val"]["r"] == "3"
+    assert third["attrs"]["next"] == {"ref": known_label}  # reference, not a placeholder
+    assert known_label not in s.scratch  # and it is not re-serialized past the limit
+    fresh = Serializer()  # nothing known: the placeholder contract is unchanged
+    fresh.begin()
+    fresh.value(head)
+    cut = [e["attrs"]["next"] for e in fresh.scratch.values() if e["attrs"]["next"].get("trunc")]
+    assert cut == [{"k": "other", "t": "Node", "r": "<Node object>", "trunc": True}]

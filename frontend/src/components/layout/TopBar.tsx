@@ -1,4 +1,5 @@
-import { useT } from "../../i18n";
+import { useT, type Key } from "../../i18n";
+import { tr } from "../../i18n/tr";
 import { exportUrl } from "../../api/http";
 import { EXAMPLES } from "../../lib/examples";
 import { usePlayback } from "../../store/playbackStore";
@@ -34,7 +35,11 @@ export function TopBar(): React.ReactElement {
         }}
       >
         <option value="">{t("top.examples")}…</option>
-        {EXAMPLES.map((x) => (<option key={x.name} value={x.name}>{x.name}</option>))}
+        {EXAMPLES.map((x) => {
+          const k = `ex.${x.name.replace(/\.py$/, "")}` as Key;
+          const known = k in tr;
+          return (<option key={x.name} value={x.name} title={known ? t(`${k}.desc` as Key) : undefined}>{known ? `${t(k)} (${x.name})` : x.name}</option>);
+        })}
       </select>
       {busy ? (
         <button className="gb-btn gb-btn-danger" onClick={() => stop()}>■ {t("top.stop")}</button>
