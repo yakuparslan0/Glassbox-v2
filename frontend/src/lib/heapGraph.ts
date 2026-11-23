@@ -20,6 +20,8 @@ export interface BoxData extends Record<string, unknown> {
   isUpdated?: boolean; // a primitive field (or list/dict content) changed since the previous step
   changedRows?: number[]; // indices into `rows` that changed
   nullFields?: string[]; // structural pointers (left/right/next/prev) that are None (tree / linked_list only)
+  w?: number; // rendered width of an object box; the layout reserved exactly this much room
+  h?: number; // height reserved by the layout
 }
 
 export const GRAPH_X = 320;
@@ -114,9 +116,21 @@ export function detectStructure(labels: string[], heap: HeapMap): StructureKind 
   return "graph";
 }
 
-function boxSize(rows: string[], alias: number): { w: number; h: number } {
-  const longest = Math.max(10, ...rows.map((r) => r.length));
-  return { w: Math.min(280, Math.max(140, longest * 7 + 24)), h: 34 + rows.length * 16 + (alias > 1 ? 20 : 0) };
+const BOX_MIN_W = 140;
+const BOX_MAX_W = 280;
+const ALIAS_W = 260; // room for the one-line "Alias: n names point to the same object" chip
+
+/** Box size used by dagre. The width is also applied to the rendered box, so layout and DOM always agree;
+ * every optional line (alias chip, NEW badge, None badges) is counted in the height. */
+function boxSize(title: string, rows: string[], d: Partial<BoxData>): { w: number; h: number } {
+  const longest = Math.max(10, title.length, ...rows.map((r) => r.length));
+  let w = Math.min(BOX_MAX_W, Math.max(BOX_MIN_W, longest * 7 + 24));
+  if ((d.alias ?? 0) > 1) w = Math.max(w, ALIAS_W);
+  const visibleRows = rows.filter((r) => !d.nullFields?.some((f) => r.startsWith(`${f} = `))).length;
+  const badges = (d.nullFields?.length ?? 0) * 70; // approximate width of one "next: None" badge
+  const badgeLines = badges ? Math.ceil(badges / (w - 20)) : 0;
+  const h = 34 + visibleRows * 16 + ((d.alias ?? 0) > 1 ? 22 : 0) + (d.isNew ? 18 : 0) + badgeLines * 20;
+  return { w, h };
 }
 
 function frameList(view: ViewState): { id: string; title: string; vars: Record<string, Val> }[] {
@@ -253,12 +267,19 @@ export function buildHeapGraph(view: ViewState, prevView?: ViewState | null): He
   comps.forEach((members, ci) => {
     const structure = detectStructure(members, heap);
     const dir: HandleDir = structure === "tree" ? "TB" : "LR";
-    const info = new Map<string, { rows: string[]; alias: number; w: number; h: number }>();
+    const info = new Map<string, { data: BoxData; w: number; h: number }>();
     for (const label of members) {
       const e = heap[label];
       const alias = [...(incoming.get(label) ?? [])].filter((s) => !s.endsWith("->")).length;
       const rows = e.k === "obj" ? primRows(e, heap).map(([k, v]) => `${k} = ${v}`) : [formatVal({ ref: label }, heap)];
-      info.set(label, { rows, alias, ...boxSize(rows, alias) });
+      const data: BoxData = {
+        title: `${label} · ${e.t}`, rows, alias, kind: "object", structure, dir,
+        ...diffOf(label), ...nullsOf(label, structure), ...(inCycle.has(label) ? { inCycle: true } : {}),
+      };
+      const size = boxSize(data.title, rows, data);
+      data.w = size.w;
+      data.h = size.h;
+      info.set(label, { data, ...size });
     }
     const g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: dir, nodesep: 40, ranksep: 70, acyclicer: "greedy" });
@@ -274,14 +295,14 @@ export function buildHeapGraph(view: ViewState, prevView?: ViewState | null): He
     let maxY = 0;
     for (const label of members) {
       const p = g.node(label);
-      const d = info.get(label) as { rows: string[]; alias: number; w: number; h: number };
+      const d = info.get(label) as { data: BoxData; w: number; h: number };
       const top = p.y - d.h / 2 + offsetY;
       maxY = Math.max(maxY, p.y + d.h / 2);
       nodes.push({
         id: label,
         type: "box",
         position: { x: GRAPH_X + p.x - d.w / 2, y: top },
-        data: { title: `${label} · ${heap[label].t}`, rows: d.rows, alias: d.alias, kind: "object", structure, dir, ...diffOf(label), ...nullsOf(label, structure), ...(inCycle.has(label) ? { inCycle: true } : {}) },
+        data: d.data,
       });
     }
     offsetY += maxY + COMPONENT_GAP;

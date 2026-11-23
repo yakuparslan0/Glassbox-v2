@@ -9,7 +9,7 @@ function Box({ data }: NodeProps<Node<BoxData>>): React.ReactElement {
   const t = useT();
   const vertical = data.dir === "TB";
   return (
-    <div className={`gb-box ${data.kind === "object" ? "gb-box-object" : ""} ${data.alias > 1 ? "gb-box-alias" : ""} ${data.structure ? `gb-box-${data.structure}` : ""} ${data.isNew ? "gb-box-new" : ""} ${data.isUpdated ? "gb-box-updated" : ""} ${data.inCycle ? "gb-box-cycle" : ""}`}>
+    <div className={`gb-box ${data.kind === "object" ? "gb-box-object" : ""} ${data.alias > 1 ? "gb-box-alias" : ""} ${data.structure ? `gb-box-${data.structure}` : ""} ${data.isNew ? "gb-box-new" : ""} ${data.isUpdated ? "gb-box-updated" : ""} ${data.inCycle ? "gb-box-cycle" : ""}`} style={data.w ? { width: data.w, maxWidth: data.w } : undefined}>
       <Handle type="target" position={vertical ? Position.Top : Position.Left} />
       <div className="font-semibold text-xs mb-1 gb-box-title">
         {data.alias > 1 && <span aria-hidden>⛓ </span>}

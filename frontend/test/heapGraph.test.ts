@@ -192,6 +192,32 @@ describe("buildHeapGraph", () => {
   });
 });
 
+describe("buildHeapGraph box sizes", () => {
+  it("aliased boxes (wide alias chip) and badges get room in the layout: no rectangles overlap", () => {
+    // reverse_list mid-loop: several frame names point at the same nodes, so each box carries the alias chip
+    const heap: HeapMap = {
+      o1: obj("Node", { val: int(1), next: none }),
+      o2: obj("Node", { val: int(2), next: ref("o1") }),
+      o3: obj("Node", { val: int(3), next: none }),
+    };
+    const g = buildHeapGraph(
+      { stack: [{ frame: 6, func: "reverse", line: 16, locals: { head: ref("o1"), prev: ref("o2"), curr: ref("o2"), nxt: ref("o3") } }],
+        globals: { a: ref("o1"), b: ref("o2"), c: ref("o3") }, heap },
+      { stack: [], globals: { a: ref("o1"), b: ref("o2"), c: ref("o3") }, heap: { ...heap, o2: obj("Node", { val: int(2), next: ref("o3") }) } },
+    );
+    const boxes = g.nodes.filter((n) => n.data.kind === "object");
+    expect(boxes.every((n) => n.data.alias > 1 && (n.data.w ?? 0) >= 260)).toBe(true);
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const [a, b] = [boxes[i], boxes[j]];
+        const apart =
+          a.position.x + (a.data.w as number) <= b.position.x || b.position.x + (b.data.w as number) <= a.position.x ||
+          a.position.y + (a.data.h as number) <= b.position.y || b.position.y + (b.data.h as number) <= a.position.y;
+        expect(apart, `${a.id} overlaps ${b.id}`).toBe(true);
+      }
+  });
+});
+
 describe("buildHeapGraph on a real runner trace", () => {
   it("a 5-node list reachable only through `head` draws every next arrow (no depth-limit cut)", async () => {
     const { loadFixture } = await import("./fixtures");
